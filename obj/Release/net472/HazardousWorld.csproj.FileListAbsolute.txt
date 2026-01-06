@@ -1,0 +1,9 @@
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\bin\Release\net472\HazardousWorld.dll
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\bin\Release\net472\HazardousWorld.pdb
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.csproj.AssemblyReference.cache
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.AssemblyInfoInputs.cache
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.AssemblyInfo.cs
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.csproj.CoreCompileInputs.cache
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.dll
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Release\net472\HazardousWorld.pdb
