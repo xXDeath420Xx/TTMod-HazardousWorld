@@ -41,6 +41,14 @@
       <HintPath>$(GameDir)\Techtonica_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(GameDir)\Techtonica_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\Techtonica_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="EquinoxsModUtils">
       <HintPath>$(PluginDir)\Equinox-EquinoxsModUtils\EquinoxsModUtils\EquinoxsModUtils.dll</HintPath>
       <Private>false</Private>
@@ -50,13 +58,9 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="TechtonicaFramework">
-      <HintPath>$(PluginDir)\CertiFried-TechtonicaFramework\TechtonicaFramework.dll</HintPath>
+      <HintPath>..\TechtonicaFramework\bin\Debug\net472\TechtonicaFramework.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <MakeDir Directories="$(PluginDir)\$(AssemblyName)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)\$(AssemblyName)" />
-  </Target>
 </Project>

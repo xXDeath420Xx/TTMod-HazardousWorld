@@ -7,3 +7,4 @@ C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Debug\net472\HazardousW
 C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Debug\net472\HazardousWorld.csproj.CoreCompileInputs.cache
 C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Debug\net472\HazardousWorld.dll
 C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Debug\net472\HazardousWorld.pdb
+C:\Users\crawf\TechtonicaMods\NewMods\HazardousWorld\obj\Debug\net472\HazardousWorld.sourcelink.json

@@ -7,7 +7,7 @@ repository = "https://thunderstore.io"
 [package]
 namespace = "CertiFried"
 name = "HazardousWorld"
-versionNumber = "1.0.2"
+versionNumber = "1.5.0"
 description = "Adds environmental hazards and protective equipment including Hazmat Suit, Radiation Shield, and Antidote."
 websiteUrl = "https://github.com/xXDeath420Xx/TTMod-HazardousWorld"
 containsNsfwContent = false
@@ -16,7 +16,7 @@ containsNsfwContent = false
 BepInEx-BepInExPack = "5.4.2100"
 Equinox-EquinoxsModUtils = "6.1.3"
 Equinox-EMUAdditions = "2.0.0"
-CertiFried-TechtonicaFramework = "1.0.2"
+CertiFried-TechtonicaFramework = "1.2.0"
 
 [build]
 icon = "./icon.png"
