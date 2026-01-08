@@ -1,0 +1,11 @@
+{
+  "name": "HazardousWorld",
+  "version_number": "1.6.0",
+  "website_url": "https://github.com/CertiFried-Mods/TTMod-HazardousWorld",
+  "description": "Adds environmental hazards and dangers including toxic zones and radiation areas",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2100",
+    "Equinox-EquinoxsModUtils-6.1.1",
+    "CertiFried-TechtonicaFramework-1.4.0"
+  ]
+}

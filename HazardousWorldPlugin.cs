@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -28,11 +31,12 @@ namespace HazardousWorld
     {
         public const string MyGUID = "com.certifired.HazardousWorld";
         public const string PluginName = "HazardousWorld";
-        public const string VersionString = "1.5.0";
+        public const string VersionString = "1.6.0";
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
         public static ManualLogSource Log;
         public static HazardousWorldPlugin Instance;
+        public static string PluginPath;
 
         // Configuration
         public static ConfigEntry<bool> EnableToxicZones;
@@ -72,10 +76,17 @@ namespace HazardousWorld
         {
             Instance = this;
             Log = Logger;
+            PluginPath = Path.GetDirectoryName(Info.Location);
             Log.LogInfo($"{PluginName} v{VersionString} loading...");
 
             InitializeConfig();
             Harmony.PatchAll();
+
+            // Initialize environment asset loader for 3D flora models
+            EnvironmentAssetLoader.Initialize(PluginPath);
+
+            // Load custom icons
+            LoadCustomIcons();
 
             // Register protective equipment
             RegisterProtectiveEquipment();
@@ -250,7 +261,7 @@ namespace HazardousWorld
 
         private void RegisterProtectiveEquipment()
         {
-            // Register unlock for protective gear - Modded category
+            // Register unlock for protective gear - Modded category (VICTOR zone, Tier6)
             EMUAdditions.AddNewUnlock(new NewUnlockDetails
             {
                 category = ModdedTabModule.ModdedCategory,
@@ -258,8 +269,8 @@ namespace HazardousWorld
                 coreCountNeeded = 100,
                 description = "Research protective equipment to survive hazardous environments.",
                 displayName = HazmatUnlock,
-                requiredTier = TechTreeState.ResearchTier.Tier0,
-                treePosition = 0
+                requiredTier = TechTreeState.ResearchTier.Tier6, // VICTOR zone
+                treePosition = 70
             });
 
             // Hazmat Suit - protects against toxic
@@ -375,6 +386,9 @@ namespace HazardousWorld
             LinkUnlockToResource(HazmatSuitName, HazmatUnlock);
             LinkUnlockToResource(RadShieldName, HazmatUnlock);
             LinkUnlockToResource("Antidote", HazmatUnlock);
+
+            // Apply custom sprites to resources
+            ApplyCustomSprites();
 
             Log.LogInfo("Linked HazardousWorld unlocks to resources");
         }
@@ -603,37 +617,54 @@ namespace HazardousWorld
 
         public static GameObject SpawnSporePlant(Vector3 position)
         {
-            // Create the spore plant visual
-            GameObject plant = new GameObject("SporePlant");
-            plant.transform.position = position;
+            GameObject plant;
 
-            // Create base stalk
-            GameObject stalk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            stalk.transform.SetParent(plant.transform);
-            stalk.transform.localPosition = Vector3.up * 0.5f;
-            stalk.transform.localScale = new Vector3(0.3f, 1f, 0.3f);
-            var stalkRenderer = stalk.GetComponent<Renderer>();
-            stalkRenderer.material.color = new Color(0.3f, 0.5f, 0.2f);
+            // Try to use real 3D model from asset bundle
+            var modelInstance = EnvironmentAssetLoader.InstantiateFlora(
+                EnvironmentAssetLoader.FloraType.SporePlant,
+                position,
+                Quaternion.identity);
 
-            // Create bulbous top
-            GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            bulb.transform.SetParent(plant.transform);
-            bulb.transform.localPosition = Vector3.up * 1.5f;
-            bulb.transform.localScale = new Vector3(1.2f, 0.8f, 1.2f);
-            var bulbRenderer = bulb.GetComponent<Renderer>();
-            bulbRenderer.material.color = new Color(0.6f, 0.2f, 0.4f);
-
-            // Create spore puff visual (child spheres)
-            for (int i = 0; i < 6; i++)
+            if (modelInstance != null)
             {
-                GameObject puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                puff.transform.SetParent(bulb.transform);
-                float puffAngle = (i / 6f) * Mathf.PI * 2f;
-                puff.transform.localPosition = new Vector3(Mathf.Cos(puffAngle) * 0.4f, 0.2f, Mathf.Sin(puffAngle) * 0.4f);
-                puff.transform.localScale = Vector3.one * 0.3f;
-                var puffRenderer = puff.GetComponent<Renderer>();
-                puffRenderer.material.color = new Color(0.8f, 0.6f, 0.2f, 0.7f);
-                UnityEngine.Object.Destroy(puff.GetComponent<Collider>());
+                plant = modelInstance;
+                plant.name = "SporePlant";
+                LogDebug($"Spawned spore plant using 3D model at {position}");
+            }
+            else
+            {
+                // Fallback to procedural generation
+                plant = new GameObject("SporePlant");
+                plant.transform.position = position;
+
+                // Create base stalk
+                GameObject stalk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                stalk.transform.SetParent(plant.transform);
+                stalk.transform.localPosition = Vector3.up * 0.5f;
+                stalk.transform.localScale = new Vector3(0.3f, 1f, 0.3f);
+                var stalkRenderer = stalk.GetComponent<Renderer>();
+                stalkRenderer.material.color = new Color(0.3f, 0.5f, 0.2f);
+
+                // Create bulbous top
+                GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                bulb.transform.SetParent(plant.transform);
+                bulb.transform.localPosition = Vector3.up * 1.5f;
+                bulb.transform.localScale = new Vector3(1.2f, 0.8f, 1.2f);
+                var bulbRenderer = bulb.GetComponent<Renderer>();
+                bulbRenderer.material.color = new Color(0.6f, 0.2f, 0.4f);
+
+                // Create spore puff visual (child spheres)
+                for (int i = 0; i < 6; i++)
+                {
+                    GameObject puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    puff.transform.SetParent(bulb.transform);
+                    float puffAngle = (i / 6f) * Mathf.PI * 2f;
+                    puff.transform.localPosition = new Vector3(Mathf.Cos(puffAngle) * 0.4f, 0.2f, Mathf.Sin(puffAngle) * 0.4f);
+                    puff.transform.localScale = Vector3.one * 0.3f;
+                    var puffRenderer = puff.GetComponent<Renderer>();
+                    puffRenderer.material.color = new Color(0.8f, 0.6f, 0.2f, 0.7f);
+                    UnityEngine.Object.Destroy(puff.GetComponent<Collider>());
+                }
             }
 
             // Add controller
@@ -652,42 +683,60 @@ namespace HazardousWorld
         /// </summary>
         public static GameObject SpawnVenomousThorn(Vector3 position)
         {
-            GameObject thorn = new GameObject("VenomousThorn");
-            thorn.transform.position = position;
+            GameObject thorn;
 
-            // Create sharp thorn-like branches
-            Color thornColor = new Color(0.3f, 0.15f, 0.1f); // Dark brown
-            Color tipColor = new Color(0.6f, 0.1f, 0.2f); // Dark red tips
+            // Try to use real 3D model from asset bundle
+            var modelInstance = EnvironmentAssetLoader.InstantiateFlora(
+                EnvironmentAssetLoader.FloraType.VenomousThorn,
+                position,
+                Quaternion.identity);
 
-            // Base
-            GameObject baseObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            baseObj.transform.SetParent(thorn.transform);
-            baseObj.transform.localPosition = Vector3.up * 0.2f;
-            baseObj.transform.localScale = new Vector3(0.6f, 0.4f, 0.6f);
-            baseObj.GetComponent<Renderer>().material.color = thornColor;
-            UnityEngine.Object.Destroy(baseObj.GetComponent<Collider>());
-
-            // Create thorny branches pointing outward
-            for (int i = 0; i < 8; i++)
+            if (modelInstance != null)
             {
-                float angle = (i / 8f) * Mathf.PI * 2f;
-                float heightOffset = UnityEngine.Random.Range(0.3f, 0.8f);
+                thorn = modelInstance;
+                thorn.name = "VenomousThorn";
+                LogDebug($"Spawned venomous thorn using 3D model at {position}");
+            }
+            else
+            {
+                // Fallback to procedural generation
+                thorn = new GameObject("VenomousThorn");
+                thorn.transform.position = position;
 
-                GameObject branch = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                branch.transform.SetParent(thorn.transform);
-                branch.transform.localPosition = new Vector3(
-                    Mathf.Cos(angle) * 0.3f,
-                    heightOffset,
-                    Mathf.Sin(angle) * 0.3f
-                );
-                branch.transform.localRotation = Quaternion.Euler(
-                    UnityEngine.Random.Range(30f, 60f),
-                    angle * Mathf.Rad2Deg,
-                    0
-                );
-                branch.transform.localScale = new Vector3(0.08f, 0.4f, 0.08f);
-                branch.GetComponent<Renderer>().material.color = Color.Lerp(thornColor, tipColor, 0.5f);
-                UnityEngine.Object.Destroy(branch.GetComponent<Collider>());
+                // Create sharp thorn-like branches
+                Color thornColor = new Color(0.3f, 0.15f, 0.1f); // Dark brown
+                Color tipColor = new Color(0.6f, 0.1f, 0.2f); // Dark red tips
+
+                // Base
+                GameObject baseObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                baseObj.transform.SetParent(thorn.transform);
+                baseObj.transform.localPosition = Vector3.up * 0.2f;
+                baseObj.transform.localScale = new Vector3(0.6f, 0.4f, 0.6f);
+                baseObj.GetComponent<Renderer>().material.color = thornColor;
+                UnityEngine.Object.Destroy(baseObj.GetComponent<Collider>());
+
+                // Create thorny branches pointing outward
+                for (int i = 0; i < 8; i++)
+                {
+                    float angle = (i / 8f) * Mathf.PI * 2f;
+                    float heightOffset = UnityEngine.Random.Range(0.3f, 0.8f);
+
+                    GameObject branch = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    branch.transform.SetParent(thorn.transform);
+                    branch.transform.localPosition = new Vector3(
+                        Mathf.Cos(angle) * 0.3f,
+                        heightOffset,
+                        Mathf.Sin(angle) * 0.3f
+                    );
+                    branch.transform.localRotation = Quaternion.Euler(
+                        UnityEngine.Random.Range(30f, 60f),
+                        angle * Mathf.Rad2Deg,
+                        0
+                    );
+                    branch.transform.localScale = new Vector3(0.08f, 0.4f, 0.08f);
+                    branch.GetComponent<Renderer>().material.color = Color.Lerp(thornColor, tipColor, 0.5f);
+                    UnityEngine.Object.Destroy(branch.GetComponent<Collider>());
+                }
             }
 
             var controller = thorn.AddComponent<VenomousThornController>();
@@ -704,36 +753,54 @@ namespace HazardousWorld
         /// </summary>
         public static GameObject SpawnAcidSpitter(Vector3 position)
         {
-            GameObject spitter = new GameObject("AcidSpitter");
-            spitter.transform.position = position;
+            GameObject spitter;
 
-            Color stemColor = new Color(0.2f, 0.4f, 0.1f); // Dark green
-            Color headColor = new Color(0.5f, 0.8f, 0.2f); // Bright green
-            Color sackColor = new Color(0.7f, 0.9f, 0.1f); // Yellow-green acid
+            // Try to use real 3D model from asset bundle
+            var modelInstance = EnvironmentAssetLoader.InstantiateFlora(
+                EnvironmentAssetLoader.FloraType.AcidSpitter,
+                position,
+                Quaternion.identity);
 
-            // Stem
-            GameObject stem = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            stem.transform.SetParent(spitter.transform);
-            stem.transform.localPosition = Vector3.up * 0.5f;
-            stem.transform.localScale = new Vector3(0.25f, 1f, 0.25f);
-            stem.GetComponent<Renderer>().material.color = stemColor;
+            if (modelInstance != null)
+            {
+                spitter = modelInstance;
+                spitter.name = "AcidSpitter";
+                LogDebug($"Spawned acid spitter using 3D model at {position}");
+            }
+            else
+            {
+                // Fallback to procedural generation
+                spitter = new GameObject("AcidSpitter");
+                spitter.transform.position = position;
 
-            // Head (pitcher-like)
-            GameObject head = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            head.transform.SetParent(spitter.transform);
-            head.transform.localPosition = Vector3.up * 1.5f;
-            head.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
-            head.transform.localRotation = Quaternion.Euler(15f, 0, 0); // Tilted forward
-            head.GetComponent<Renderer>().material.color = headColor;
-            UnityEngine.Object.Destroy(head.GetComponent<Collider>());
+                Color stemColor = new Color(0.2f, 0.4f, 0.1f); // Dark green
+                Color headColor = new Color(0.5f, 0.8f, 0.2f); // Bright green
+                Color sackColor = new Color(0.7f, 0.9f, 0.1f); // Yellow-green acid
 
-            // Acid sack bulge
-            GameObject sack = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sack.transform.SetParent(head.transform);
-            sack.transform.localPosition = Vector3.forward * 0.2f;
-            sack.transform.localScale = new Vector3(0.6f, 0.5f, 0.4f);
-            sack.GetComponent<Renderer>().material.color = sackColor;
-            UnityEngine.Object.Destroy(sack.GetComponent<Collider>());
+                // Stem
+                GameObject stem = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                stem.transform.SetParent(spitter.transform);
+                stem.transform.localPosition = Vector3.up * 0.5f;
+                stem.transform.localScale = new Vector3(0.25f, 1f, 0.25f);
+                stem.GetComponent<Renderer>().material.color = stemColor;
+
+                // Head (pitcher-like)
+                GameObject head = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                head.transform.SetParent(spitter.transform);
+                head.transform.localPosition = Vector3.up * 1.5f;
+                head.transform.localScale = new Vector3(0.6f, 0.5f, 0.6f);
+                head.transform.localRotation = Quaternion.Euler(15f, 0, 0); // Tilted forward
+                head.GetComponent<Renderer>().material.color = headColor;
+                UnityEngine.Object.Destroy(head.GetComponent<Collider>());
+
+                // Acid sack bulge
+                GameObject sack = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sack.transform.SetParent(head.transform);
+                sack.transform.localPosition = Vector3.forward * 0.2f;
+                sack.transform.localScale = new Vector3(0.6f, 0.5f, 0.4f);
+                sack.GetComponent<Renderer>().material.color = sackColor;
+                UnityEngine.Object.Destroy(sack.GetComponent<Collider>());
+            }
 
             var controller = spitter.AddComponent<AcidSpitterController>();
             controller.damage = AcidDamage.Value;
@@ -750,42 +817,60 @@ namespace HazardousWorld
         /// </summary>
         public static GameObject SpawnGraspingVine(Vector3 position)
         {
-            GameObject vine = new GameObject("GraspingVine");
-            vine.transform.position = position;
+            GameObject vine;
 
-            Color vineColor = new Color(0.15f, 0.3f, 0.1f); // Dark green
-            Color rootColor = new Color(0.3f, 0.2f, 0.1f); // Brown
+            // Try to use real 3D model from asset bundle
+            var modelInstance = EnvironmentAssetLoader.InstantiateFlora(
+                EnvironmentAssetLoader.FloraType.GraspingVine,
+                position,
+                Quaternion.identity);
 
-            // Create a cluster of vines
-            for (int i = 0; i < 5; i++)
+            if (modelInstance != null)
             {
-                float angle = (i / 5f) * Mathf.PI * 2f;
-                float dist = UnityEngine.Random.Range(0.3f, 0.8f);
-
-                GameObject tendril = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                tendril.transform.SetParent(vine.transform);
-                tendril.transform.localPosition = new Vector3(
-                    Mathf.Cos(angle) * dist,
-                    0.5f,
-                    Mathf.Sin(angle) * dist
-                );
-                tendril.transform.localScale = new Vector3(0.15f, 1f, 0.15f);
-                tendril.transform.localRotation = Quaternion.Euler(
-                    UnityEngine.Random.Range(-20f, 20f),
-                    UnityEngine.Random.Range(0f, 360f),
-                    UnityEngine.Random.Range(-20f, 20f)
-                );
-                tendril.GetComponent<Renderer>().material.color = vineColor;
-                UnityEngine.Object.Destroy(tendril.GetComponent<Collider>());
+                vine = modelInstance;
+                vine.name = "GraspingVine";
+                LogDebug($"Spawned grasping vine using 3D model at {position}");
             }
+            else
+            {
+                // Fallback to procedural generation
+                vine = new GameObject("GraspingVine");
+                vine.transform.position = position;
 
-            // Root mass at base
-            GameObject roots = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            roots.transform.SetParent(vine.transform);
-            roots.transform.localPosition = Vector3.up * 0.15f;
-            roots.transform.localScale = new Vector3(1.5f, 0.4f, 1.5f);
-            roots.GetComponent<Renderer>().material.color = rootColor;
-            UnityEngine.Object.Destroy(roots.GetComponent<Collider>());
+                Color vineColor = new Color(0.15f, 0.3f, 0.1f); // Dark green
+                Color rootColor = new Color(0.3f, 0.2f, 0.1f); // Brown
+
+                // Create a cluster of vines
+                for (int i = 0; i < 5; i++)
+                {
+                    float angle = (i / 5f) * Mathf.PI * 2f;
+                    float dist = UnityEngine.Random.Range(0.3f, 0.8f);
+
+                    GameObject tendril = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    tendril.transform.SetParent(vine.transform);
+                    tendril.transform.localPosition = new Vector3(
+                        Mathf.Cos(angle) * dist,
+                        0.5f,
+                        Mathf.Sin(angle) * dist
+                    );
+                    tendril.transform.localScale = new Vector3(0.15f, 1f, 0.15f);
+                    tendril.transform.localRotation = Quaternion.Euler(
+                        UnityEngine.Random.Range(-20f, 20f),
+                        UnityEngine.Random.Range(0f, 360f),
+                        UnityEngine.Random.Range(-20f, 20f)
+                    );
+                    tendril.GetComponent<Renderer>().material.color = vineColor;
+                    UnityEngine.Object.Destroy(tendril.GetComponent<Collider>());
+                }
+
+                // Root mass at base
+                GameObject roots = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                roots.transform.SetParent(vine.transform);
+                roots.transform.localPosition = Vector3.up * 0.15f;
+                roots.transform.localScale = new Vector3(1.5f, 0.4f, 1.5f);
+                roots.GetComponent<Renderer>().material.color = rootColor;
+                UnityEngine.Object.Destroy(roots.GetComponent<Collider>());
+            }
 
             var controller = vine.AddComponent<GraspingVineController>();
             controller.slowAmount = VineSlowAmount.Value;
@@ -884,6 +969,122 @@ namespace HazardousWorld
             if (DebugMode != null && DebugMode.Value)
             {
                 Log.LogInfo($"[DEBUG] {message}");
+            }
+        }
+
+        // Cached sprites cloned from game assets
+        private static Dictionary<string, Sprite> customSprites = new Dictionary<string, Sprite>();
+
+        /// <summary>
+        /// Clone a sprite from an existing game resource to match Techtonica's icon style
+        /// </summary>
+        private static Sprite CloneGameSprite(string sourceResourceName)
+        {
+            try
+            {
+                ResourceInfo sourceResource = EMU.Resources.GetResourceInfoByName(sourceResourceName);
+                if (sourceResource != null && sourceResource.sprite != null)
+                {
+                    Log.LogInfo($"Cloned sprite from {sourceResourceName}");
+                    return sourceResource.sprite;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"Failed to clone sprite from {sourceResourceName}: {ex.Message}");
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Load all custom icons by cloning from existing game resources
+        /// This ensures icons match Techtonica's visual style
+        /// </summary>
+        private void LoadCustomIcons()
+        {
+            // Clone sprites from existing similar items to match game aesthetic
+            // Hazmat Suit - use M.O.L.E. suit icon (protective gear)
+            customSprites["hazmat_suit"] = CloneGameSprite("M.O.L.E.");
+            // Radiation Shield - use Exosuit icon (protective equipment)
+            customSprites["radiation_shield"] = CloneGameSprite("Exosuit");
+            // Antidote - use Plantmatter Fibre icon (organic consumable)
+            customSprites["antidote"] = CloneGameSprite("Plantmatter Fibre");
+
+            int loaded = customSprites.Values.Count(s => s != null);
+            Log.LogInfo($"Cloned {loaded}/{customSprites.Count} sprites from game assets");
+        }
+
+        /// <summary>
+        /// Set sprite on ResourceInfo using reflection (sprite property is read-only)
+        /// </summary>
+        private static void SetResourceSprite(ResourceInfo resource, Sprite sprite)
+        {
+            if (resource == null || sprite == null) return;
+            try
+            {
+                var spriteField = typeof(ResourceInfo).GetField("_sprite", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (spriteField != null)
+                {
+                    spriteField.SetValue(resource, sprite);
+                }
+                else
+                {
+                    // Try property backing field
+                    var backingField = typeof(ResourceInfo).GetField("<sprite>k__BackingField", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (backingField != null)
+                    {
+                        backingField.SetValue(resource, sprite);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"Failed to set sprite via reflection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Apply custom sprites to resources after they're registered
+        /// </summary>
+        private void ApplyCustomSprites()
+        {
+            try
+            {
+                // Apply to Hazmat Suit
+                var hazmat = EMU.Resources.GetResourceInfoByName(HazmatSuitName);
+                if (hazmat != null && customSprites.TryGetValue("hazmat_suit", out Sprite hazmatSprite) && hazmatSprite != null)
+                {
+                    SetResourceSprite(hazmat, hazmatSprite);
+                    LogDebug($"Applied custom sprite to {HazmatSuitName}");
+                }
+
+                // Apply to Radiation Shield
+                var radShield = EMU.Resources.GetResourceInfoByName(RadShieldName);
+                if (radShield != null && customSprites.TryGetValue("radiation_shield", out Sprite radSprite) && radSprite != null)
+                {
+                    SetResourceSprite(radShield, radSprite);
+                    LogDebug($"Applied custom sprite to {RadShieldName}");
+                }
+
+                // Apply to Antidote
+                var antidote = EMU.Resources.GetResourceInfoByName("Antidote");
+                if (antidote != null && customSprites.TryGetValue("antidote", out Sprite antidoteSprite) && antidoteSprite != null)
+                {
+                    SetResourceSprite(antidote, antidoteSprite);
+                    LogDebug($"Applied custom sprite to Antidote");
+                }
+
+                // Apply to unlock
+                var unlock = EMU.Unlocks.GetUnlockByName(HazmatUnlock);
+                if (unlock != null && customSprites.TryGetValue("hazmat_suit", out Sprite unlockSprite) && unlockSprite != null)
+                {
+                    unlock.sprite = unlockSprite;
+                    LogDebug($"Applied custom sprite to unlock {HazmatUnlock}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"Failed to apply custom sprites: {ex.Message}");
             }
         }
     }

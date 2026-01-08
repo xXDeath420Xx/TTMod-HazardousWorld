@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HazardousWorld")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bfc2a2bb57b6896600d0754f942908c15db6a8fe")]
 [assembly: System.Reflection.AssemblyProductAttribute("HazardousWorld")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HazardousWorld")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
